@@ -1,0 +1,6 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+# Local model evaluation exports
+predictions/*.json

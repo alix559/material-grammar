@@ -1,0 +1,4 @@
+.pixi/*
+!.pixi/config.toml
+vendor/wgpu-mojo/ffi/lib/*.so
+mojo_manim/out/

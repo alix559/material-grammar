@@ -1,0 +1,14 @@
+[workspace]
+authors = ["Alex <alixjcob559@gmail.com>"]
+channels = ["conda-forge"]
+name = "mat_dataViz"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+install-deps = { cmd = "npm install", cwd = "hello-framework" }
+dev = { cmd = "npm run dev", cwd = "hello-framework" }
+build = { cmd = "npm run build", cwd = "hello-framework" }
+
+[dependencies]
+nodejs = ">=26.5.0,<26.6"
