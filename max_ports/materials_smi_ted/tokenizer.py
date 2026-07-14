@@ -1,0 +1,94 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2026, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""SMILES regex tokenizer for IBM SMI-TED."""
+
+from __future__ import annotations
+
+import os
+import re
+from typing import TYPE_CHECKING
+
+from huggingface_hub import hf_hub_download
+from max.pipelines.lib import TextTokenizer
+from transformers.models.bert.tokenization_bert_legacy import BertTokenizerLegacy
+
+if TYPE_CHECKING:
+    from max.pipelines.lib.config import PipelineConfig
+
+_SMILES_PATTERN = re.compile(
+    r"(\[[^\]]+]|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\\\|\/|:|~|@|\?|>|\*|\$|\%[0-9]{2}|[0-9])"
+)
+
+
+class MolTranBertTokenizer(BertTokenizerLegacy):
+    """Regex SMILES tokenizer with the curated SMI-TED vocabulary."""
+
+    def __init__(self, vocab_file: str = "", **kwargs) -> None:
+        super().__init__(
+            vocab_file,
+            unk_token="<pad>",
+            sep_token="<eos>",
+            pad_token="<pad>",
+            cls_token="<bos>",
+            mask_token="<mask>",
+            do_lower_case=False,
+            **kwargs,
+        )
+        # Match IBM: disable the slow BERT WordPiece / basic pipeline.
+        self.wordpiece_tokenizer = None
+        self.basic_tokenizer = None
+
+    def _tokenize(self, text: str) -> list[str]:
+        return _SMILES_PATTERN.findall(text)
+
+
+class SmiTedTokenizer(TextTokenizer):
+    def __init__(
+        self,
+        model_path: str,
+        pipeline_config: PipelineConfig,
+        *,
+        revision: str | None = None,
+        max_length: int | None = None,
+        trust_remote_code: bool = False,
+        enable_llama_whitespace_fix: bool = False,
+        chat_template: str | None = None,
+        **unused_kwargs,
+    ) -> None:
+        self.model_path = model_path
+        vocab_file = os.path.join(model_path, "bert_vocab_curated.txt")
+        if not os.path.isfile(vocab_file):
+            vocab_file = hf_hub_download(
+                repo_id=model_path,
+                filename="bert_vocab_curated.txt",
+                revision=revision,
+            )
+
+        self.delegate = MolTranBertTokenizer(
+            vocab_file=vocab_file,
+            model_max_length=max_length or 202,
+        )
+        self._custom_template_provided = chat_template is not None
+        if chat_template is not None:
+            self.delegate.chat_template = chat_template
+        self.max_length = max_length or self.delegate.model_max_length
+        self._enable_llama_whitespace_fix = False
+        self._llama_whitespace_fix_dummy_token_id = 0
+        self._llama_whitespace_fix_dummy_token_len = 0
+        self._default_eos_token_ids = {self.eos}
+
+    @property
+    def eos(self) -> int:
+        if self.delegate.sep_token_id is not None:
+            return int(self.delegate.sep_token_id)
+        return 0

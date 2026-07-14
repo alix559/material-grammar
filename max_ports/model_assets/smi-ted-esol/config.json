@@ -1,0 +1,28 @@
+{
+  "architectures": [
+    "SmiTedModel"
+  ],
+  "torch_dtype": "float32",
+  "n_batch": 32,
+  "n_layer": 12,
+  "n_head": 12,
+  "n_embd": 768,
+  "max_len": 202,
+  "max_position_embeddings": 202,
+  "d_dropout": 0.1,
+  "dropout": 0.1,
+  "num_feats": 32,
+  "vocab_size": 2393,
+  "pad_token_id": 2,
+  "bos_token_id": 0,
+  "eos_token_id": 1,
+  "smi_ted_version": "v1",
+  "train_decoder": 1,
+  "smi_ted_output": "property",
+  "smi_ted_task": "esol",
+  "n_output": 1,
+  "task_type": "regression",
+  "target_name": "measured log solubility in mols per litre",
+  "target_unit": "log10(mol/L)",
+  "finetune_checkpoint": "/root/mojo_projects/material_grammar/max_ports/finetune_ckpts/esol/smoke_MODEL_STATE.pt"
+}

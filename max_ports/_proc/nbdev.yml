@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "mat-gram01"
+  site-url: "https://alix559.github.io/mat-gram01"
+  description: "A [MAX](https://docs.modular.com/max/) custom architecture for [ibm-research/materials.smi-ted](https://huggingface.co/ibm-research/materials.smi-ted)"
+  repo-branch: main
+  repo-url: "https://github.com/alix559/mat-gram01"

@@ -1,0 +1,144 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2026, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""Configuration for IBM SMI-TED."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from max.dtype import DType
+from max.graph import DeviceRef
+from max.pipelines.lib import MAXModelConfig, PipelineConfig
+from max.pipelines.lib.interfaces.arch_config import (
+    ArchConfig,
+    ArchConfigWithBoundedMaxSeqLen,
+)
+from max.pipelines.modeling.config_enums import supported_encoding_dtype
+from typing_extensions import Self, override
+
+
+@dataclass
+class SmiTedHFConfig:
+    """Subset of Hub ``config.json`` fields used by the MAX graph."""
+
+    model_type: str = "SMI-TED"
+    architectures: list[str] | None = None
+    n_layer: int = 12
+    n_head: int = 12
+    n_embd: int = 768
+    max_len: int = 202
+    num_feats: int = 32
+    d_dropout: float = 0.1
+    vocab_size: int = 2393
+    # Property-serve metadata (set by export_finetune_to_max.py).
+    smi_ted_output: str = "embedding"  # "embedding" | "property"
+    smi_ted_task: str | None = None
+    n_output: int = 1
+    task_type: str | None = None
+    target_name: str | None = None
+    target_unit: str | None = None
+
+    @property
+    def is_property_output(self) -> bool:
+        return self.smi_ted_output == "property"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SmiTedHFConfig:
+        return cls(
+            model_type=data.get("model_type", "SMI-TED"),
+            architectures=data.get("architectures"),
+            n_layer=int(data.get("n_layer", 12)),
+            n_head=int(data.get("n_head", 12)),
+            n_embd=int(data.get("n_embd", 768)),
+            max_len=int(data.get("max_len", 202)),
+            num_feats=int(data.get("num_feats", 32)),
+            d_dropout=float(data.get("d_dropout", 0.1)),
+            vocab_size=int(data.get("vocab_size", 2393)),
+            smi_ted_output=str(data.get("smi_ted_output", "embedding")),
+            smi_ted_task=data.get("smi_ted_task"),
+            n_output=int(data.get("n_output", 1)),
+            task_type=data.get("task_type"),
+            target_name=data.get("target_name"),
+            target_unit=data.get("target_unit"),
+        )
+
+
+@dataclass(kw_only=True)
+class SmiTedModelConfig(ArchConfigWithBoundedMaxSeqLen, ArchConfig):
+    dtype: DType
+    device: DeviceRef
+    huggingface_config: SmiTedHFConfig
+    max_seq_len: int
+
+    @override
+    @classmethod
+    def initialize(
+        cls,
+        pipeline_config: PipelineConfig,
+        model_config: MAXModelConfig | None = None,
+    ) -> Self:
+        model_config = model_config or pipeline_config.model
+        quantization_encoding = model_config.quantization_encoding
+        if quantization_encoding is None:
+            raise ValueError("quantization_encoding must not be None")
+        if len(model_config.device_specs) != 1:
+            raise ValueError("SMI-TED is only supported on a single device")
+
+        device_spec = model_config.device_specs[0]
+        raw = model_config.huggingface_config
+        if raw is None:
+            raise ValueError(
+                "HuggingFace config is required for SMI-TED. "
+                "Use the patched config under max_ports/model_assets/."
+            )
+
+        if hasattr(raw, "to_dict"):
+            hf_dict = raw.to_dict()
+        elif isinstance(raw, dict):
+            hf_dict = raw
+        else:
+            hf_dict = {
+                key: getattr(raw, key)
+                for key in (
+                    "model_type",
+                    "architectures",
+                    "n_layer",
+                    "n_head",
+                    "n_embd",
+                    "max_len",
+                    "num_feats",
+                    "d_dropout",
+                    "vocab_size",
+                    "smi_ted_output",
+                    "smi_ted_task",
+                    "n_output",
+                    "task_type",
+                    "target_name",
+                    "target_unit",
+                )
+                if hasattr(raw, key)
+            }
+
+        huggingface_config = SmiTedHFConfig.from_dict(hf_dict)
+        if huggingface_config.vocab_size <= 0:
+            huggingface_config.vocab_size = 2393
+
+        return cls(
+            dtype=supported_encoding_dtype(quantization_encoding),
+            device=DeviceRef(
+                device_type=device_spec.device_type, id=device_spec.id
+            ),
+            huggingface_config=huggingface_config,
+            max_seq_len=huggingface_config.max_len,
+        )

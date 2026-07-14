@@ -1,0 +1,28 @@
+# Pixi / local env
+.pixi/
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Model weights & vocab (fetched by `pixi run setup-model`)
+model_assets/**/*.safetensors
+model_assets/**/*.pt
+model_assets/**/bert_vocab_curated.txt
+
+# IBM finetune inputs (copy from GPU host; export with export-finetune)
+finetune_ckpts/**/*.pt
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
