@@ -54,6 +54,7 @@ jupyter = ">=1.1.1,<2"
 ipykernel = ">=7.3.0,<8"
 
 [pypi-dependencies]
+matgram = { path = ".", editable = true }
 transformers = ">=4.45,<6"
 accelerate = ">=0.30"
 scikit-learn = ">=1.4"
@@ -80,3 +81,5 @@ test-all = "python ./scripts/test_smi_ted.py --mode all --compare-hf"
 train-property = "python ./scripts/predict_property.py train --task esol"
 evaluate-property = "python ./scripts/predict_property.py evaluate --task esol --backend pytorch"
 predict-property = "python ./scripts/predict_property.py predict --task esol --backend max"
+matgram = "python -m matgram"
+test-matgram = "python -m unittest discover -s tests -p 'test_matgram.py'"

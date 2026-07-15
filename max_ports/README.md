@@ -13,6 +13,8 @@ SMILES → tokens → MoLEncoder → AutoEncoder → 768-d vector
 
 See [`PORT.md`](PORT.md) for finetune → `export-finetune` → `serve-esol` / `serve-bbbp` / `serve-lipo`.
 
+For the live dashboard, checkpoint loader, and CLI, see [`MATGRAM.md`](MATGRAM.md).
+
 This is a literate rewrite of `materials_smi_ted/` using [nbdev](https://nbdev.fast.ai/) notebooks in Jeremy Howard’s style: explain a little, code a little, export a little.
 
 ## Notebooks (`nbs/`)

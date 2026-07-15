@@ -1,0 +1,14 @@
+{
+  "task": "esol",
+  "updatedAt": 1784073455.608559,
+  "rows": [
+    {
+      "task": "esol",
+      "smiles": "CCO",
+      "raw": -0.30082520842552185,
+      "prediction": -0.30082520842552185,
+      "id": "950791babc9f41e7b483d70cffe1bc1d",
+      "createdAt": 1784073455.608559
+    }
+  ]
+}

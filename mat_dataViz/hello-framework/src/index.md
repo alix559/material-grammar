@@ -11,24 +11,51 @@ import {
   regressionMetrics,
   rocCurve
 } from "./components/property-metrics.js";
+import {
+  connectSession,
+  fetchSession,
+  mergeSession,
+  submitPredictions
+} from "./components/evaluation-client.js";
+import {predictionForm} from "./components/prediction-form.js";
 
-const evaluation = await FileAttachment("data/evaluations.json").json();
+const baseline = await FileAttachment("data/evaluations.json").json();
+const controllerBaseUrl = globalThis.MATGRAM_CONTROLLER_URL ?? "";
 ```
 
 ```js
-const taskNames = Object.keys(evaluation.tasks);
-const taskInput = Inputs.select(taskNames, {
-  label: "Property",
-  format: (task) => evaluation.tasks[task].label,
-  value: "esol"
+const liveSession = Generators.observe((notify) => {
+  let connection = "connecting";
+  let current = {task: null, updatedAt: null, rows: [], connection};
+  notify(current);
+  fetchSession(controllerBaseUrl)
+    .then((state) => {
+      current = {...state, connection};
+      notify(current);
+    })
+    .catch((error) => {
+      connection = "offline";
+      current = {...current, connection, error: error.message};
+      notify(current);
+    });
+  return connectSession({
+    baseUrl: controllerBaseUrl,
+    onState: (state) => {
+      current = {...state, connection};
+      notify(current);
+    },
+    onConnection: (value) => {
+      connection = value;
+      current = {...current, connection};
+      notify(current);
+    }
+  });
 });
 ```
 
 ```js
-const selectedTask = Generators.input(taskInput);
-```
-
-```js
+const evaluation = mergeSession(baseline, liveSession);
+const selectedTask = liveSession.task ?? "esol";
 const spec = evaluation.tasks[selectedTask];
 const rows = evaluation.rows.filter((row) => row.task === selectedTask);
 const paired = pairedRows(rows);
@@ -48,6 +75,11 @@ const metric = (value, digits = 3) =>
   Number.isFinite(value) ? value.toFixed(digits) : "—";
 const percent = (value) =>
   Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
+const sessionRows = evaluation.session.rows;
+const predictionInput = predictionForm({
+  onSubmit: (smiles) =>
+    submitPredictions(smiles, {baseUrl: controllerBaseUrl})
+});
 ```
 
 <div class="dashboard-header">
@@ -56,7 +88,20 @@ const percent = (value) =>
     <h1>Molecular Property Evaluation</h1>
     <p>${taskCopy[selectedTask]}</p>
   </div>
-  <div class="task-picker">${taskInput}</div>
+  <div class="connection-state ${liveSession.connection}">${liveSession.connection}</div>
+</div>
+
+<div class="grid grid-cols-2">
+  <div class="card prediction-card">
+    <div class="eyebrow">Live MAX inference</div>
+    <h2>Predict molecular properties</h2>
+    ${predictionInput}
+  </div>
+  <div class="card prediction-summary">
+    <div class="eyebrow">Current session</div>
+    <span class="big">${sessionRows.length.toLocaleString()}</span>
+    <span class="metric-note">predictions · ${spec.label} · updates stream automatically</span>
+  </div>
 </div>
 
 ```js
@@ -93,10 +138,10 @@ const secondaryLabel =
 </div>
 
 <div class="empty-state">
-  <strong>${paired.length ? `${paired.length} ${spec.label} predictions loaded.` : `No ${spec.label} predictions loaded yet.`}</strong>
+  <strong>${sessionRows.length ? `${sessionRows.length} live ${spec.label} predictions loaded.` : `No ${spec.label} predictions yet.`}</strong>
   <span>${paired.length
-    ? "Metrics and charts below use every matched prediction."
-    : `The dashboard is showing real test labels only. Export predictions to mat_dataViz/predictions/${selectedTask}.json, then rebuild.`
+    ? `${paired.length} predictions match labeled MoleculeNet rows and contribute to benchmark metrics.`
+    : "Use the form above or the matgram predict CLI. Benchmark metrics appear when an input matches a labeled test molecule."
   }</span>
 </div>
 
@@ -285,11 +330,32 @@ const tableRows = rows
         : null
   }))
   .sort((a, b) => (b.error ?? -1) - (a.error ?? -1));
+const sessionTableRows = [...sessionRows].reverse();
 ```
 
 <div class="card results-card">
-  <h2>Molecule-level results</h2>
-  <p class="muted">${paired.length ? "Largest absolute errors appear first." : "Predictions will appear beside observed labels after export."}</p>
+  <h2>Live prediction history</h2>
+  <p class="muted">${sessionRows.length ? "Newest CLI and dashboard predictions appear first." : "No predictions in this session."}</p>
+  ${Inputs.table(sessionTableRows, {
+    columns: ["smiles", "prediction", "raw", "createdAt"],
+    header: {
+      smiles: "SMILES",
+      prediction: spec.type === "classification" ? "Probability" : "Prediction",
+      raw: spec.type === "classification" ? "Logit" : "Raw",
+      createdAt: "Time"
+    },
+    format: {
+      prediction: (value) => metric(value, 5),
+      raw: (value) => metric(value, 5),
+      createdAt: (value) => value ? new Date(value * 1000).toLocaleTimeString() : "—"
+    },
+    rows: 10
+  })}
+</div>
+
+<div class="card results-card">
+  <h2>MoleculeNet benchmark matches</h2>
+  <p class="muted">${paired.length ? "Largest absolute errors appear first." : "Submit labeled test molecules to populate benchmark metrics."}</p>
   ${Inputs.table(tableRows, {
     columns: ["smiles", "actual", "prediction", "error"],
     header: {
@@ -339,6 +405,77 @@ const tableRows = rows
 
 .task-picker {
   min-width: 220px;
+}
+
+.connection-state {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--theme-foreground-faintest);
+  border-radius: 999px;
+  color: var(--theme-foreground-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.connection-state.connected {
+  color: var(--theme-foreground-focus);
+}
+
+.prediction-card,
+.prediction-summary {
+  min-height: 180px;
+}
+
+.prediction-summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.prediction-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--theme-foreground-muted);
+  font-size: 0.8rem;
+}
+
+.prediction-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem;
+  border: 1px solid var(--theme-foreground-faintest);
+  border-radius: 0.35rem;
+  background: var(--theme-background);
+  color: var(--theme-foreground);
+  font-family: var(--monospace);
+  resize: vertical;
+}
+
+.prediction-form > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.65rem;
+}
+
+.prediction-form button {
+  padding: 0.5rem 0.85rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: var(--theme-foreground-focus);
+  color: var(--theme-background);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.prediction-form button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.form-status {
+  color: var(--theme-foreground-muted);
+  font-size: 0.75rem;
 }
 
 .metric-card {
