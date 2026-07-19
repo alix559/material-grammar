@@ -1,21 +1,27 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "matgram"
-version = "0.1.0"
-description = "Live SMI-TED property dashboard, checkpoint loader, and MAX controller"
-readme = "MATGRAM.md"
+name = "mat-gram01"
+dynamic = ["version"]
+description = "MAX custom architecture for IBM SMI-TED"
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
-dependencies = []
 
-[project.scripts]
-matgram = "matgram.cli:cli"
+[project.entry-points.nbdev]
+mat_gram01 = "mat_gram01._modidx:d"
 
-[project.urls]
-Repository = "https://github.com/modular/material_grammar"
+[tool.setuptools.dynamic]
+version = { attr = "mat_gram01.__version__" }
 
-[tool.hatch.build.targets.wheel]
-packages = ["matgram"]
+[tool.setuptools.packages.find]
+include = ["mat_gram01"]
+
+[tool.nbdev]
+lib_path = "mat_gram01"
+nbs_path = "nbs"
+doc_path = "_docs"
+recursive = true
+readme_nb = "index.ipynb"

@@ -1,53 +1,74 @@
-# mat-gram01
+# mat-gram01 / SMI-TED on MAX
 
-> Rebuild [IBM SMI-TED](https://huggingface.co/ibm-research/materials.smi-ted) as a [MAX](https://docs.modular.com/max/) custom architecture — one notebook at a time.
+Rebuild [IBM SMI-TED](https://huggingface.co/ibm-research/materials.smi-ted) as a
+[MAX](https://docs.modular.com/max/) custom architecture — then serve pretrained
+or finetuned weights over HTTP.
 
-## What are we building?
+## Setup
 
-A molecule arrives as a **SMILES** string — text like `CCO` for ethanol. We want a fixed **768-d embedding** we can serve from MAX — or, after IBM finetune export, a **property prediction** (ESOL / BBBP / lipo).
-
-```text
-SMILES → tokens → MoLEncoder → AutoEncoder → 768-d vector
-                                         └─(property mode)→ Net → scalar
+```bash
+pixi install
+pixi run setup-model   # downloads pretrained weights + vocab into model_assets/
 ```
 
-See [`PORT.md`](PORT.md) for finetune → `export-finetune` → `serve-esol` / `serve-bbbp` / `serve-lipo`.
+## HTTP API
 
-For the live dashboard, checkpoint loader, and CLI, see [`MATGRAM.md`](MATGRAM.md).
+```bash
+pixi run api
+# → http://127.0.0.1:8080
+```
 
-This is a literate rewrite of `materials_smi_ted/` using [nbdev](https://nbdev.fast.ai/) notebooks in Jeremy Howard’s style: explain a little, code a little, export a little.
+Load pretrained (768-d embeddings):
+
+```bash
+curl -X POST http://127.0.0.1:8080/load \
+  -H 'Content-Type: application/json' \
+  -d '{"weight_path":"./model_assets/ibm-research_materials.smi-ted","device":"cpu"}'
+```
+
+Load a finetune `.pt` (exports + serves property mode):
+
+```bash
+curl -X POST http://127.0.0.1:8080/load \
+  -H 'Content-Type: application/json' \
+  -d '{"checkpoint":"finetune_ckpts/esol/YOUR.pt","task":"esol","device":"cpu"}'
+```
+
+Embed / predict:
+
+```bash
+curl -X POST http://127.0.0.1:8080/embeddings \
+  -H 'Content-Type: application/json' \
+  -d '{"smiles":["CCO","c1ccccc1"]}'
+```
+
+| Task | Property |
+|------|----------|
+| esol | aqueous solubility, log₁₀(mol/L) |
+| bbbp | blood–brain barrier logit |
+| lipo | lipophilicity (logP / logD) |
+
+Notebook client: `nbs/09_serve.ipynb`.
 
 ## Notebooks (`nbs/`)
 
 | Notebook | Module | Topic |
 |----------|--------|-------|
-| `00_config` | `model_config` | HF + MAX config |
-| `01_tokenizer` | `tokenizer` | SMILES regex tokenizer |
-| `02_weights` | `weight_adapters` | Safetensors filter |
-| `03_graph` | `graph` | Network math |
-| `04_batch` | `batch_processor` | Pad to `max_len=202` |
-| `05_model` | `model` | Pipeline load/execute |
-| `06_arch` | `arch` | `SupportedArchitecture` |
-| `07_package` | `__init__` | Public exports |
+| `00_config` … `07_package` | `mat_gram01/*` | Literate MAX architecture |
 | `08_finetune` | *(not exported)* | GPU IBM finetune → `finetune_ckpts/` |
+| `09_serve` | *(not exported)* | HTTP API client |
 
-## Dev
-
-```sh
-pip install -e .
-nbdev_export
+```bash
+pixi run export-nbs    # nbdev_export → mat_gram01/
 ```
 
-```python
-from mat_gram01 import ARCHITECTURES
-ARCHITECTURES[0].name  # 'SmiTedModel'
-```
+## Layout
 
-Serve with the literate package (same assets as the reference port):
-
-```sh
-max serve \
-  --model-path ./model_assets/ibm-research_materials.smi-ted \
-  --custom-architectures ./mat_gram01 \
-  --quantization-encoding float32
+```text
+nbs/                 notebooks that build the MAX architecture
+mat_gram01/          nbdev export (custom arch)
+serve_api/           FastHTML JSON controller (`pixi run api`)
+model_assets/        weight dirs
+finetune_ckpts/      raw IBM .pt inputs
+scripts/             setup-model, export helper, compare-hf
 ```

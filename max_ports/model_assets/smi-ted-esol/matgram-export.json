@@ -1,8 +1,0 @@
-{
-  "task": "esol",
-  "checkpoint": {
-    "sha256": "2dedd0dde967a0aba1bbb37f1018e482f6d785ba5240bb6bcf58f5ed62a9cad2",
-    "size": 1159837219,
-    "name": "smoke_MODEL_STATE.pt"
-  }
-}

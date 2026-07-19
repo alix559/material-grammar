@@ -20,6 +20,10 @@ model_assets/**/bert_vocab_curated.txt
 # IBM finetune inputs (copy from GPU host; export with export-finetune)
 finetune_ckpts/**/*.pt
 
+# Notebook / API MAX serve logs
+.max_serve_notebook.log
+.max_serve_api.log
+
 # Editor / OS
 .DS_Store
 .idea/
