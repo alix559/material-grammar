@@ -6,7 +6,7 @@ __version__ = "0.0.1"
 # %% auto #0
 __all__ = []
 
-# %% ../nbs/07_package.ipynb #1764dce5
+# %% ../nbs/07_package.ipynb #231fecc9
 from .arch import ARCHITECTURES, smi_ted_arch
 from .model import SmiTedInputs, SmiTedPipelineModel
 from .model_config import SmiTedModelConfig

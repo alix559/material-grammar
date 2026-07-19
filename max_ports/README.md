@@ -34,10 +34,20 @@ curl -X POST http://127.0.0.1:8080/load \
   -d '{"checkpoint":"finetune_ckpts/esol/YOUR.pt","task":"esol","device":"cpu"}'
 ```
 
-Embed / predict:
+Embed / predict / decode:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/embeddings \
+  -H 'Content-Type: application/json' \
+  -d '{"smiles":["CCO","c1ccccc1"]}'
+
+# Decode 768-d embeddings back to SMILES
+curl -X POST http://127.0.0.1:8080/decode \
+  -H 'Content-Type: application/json' \
+  -d '{"embeddings":[[0.1, 0.2, ...]]}'
+
+# Encode then decode (round-trip smoke test)
+curl -X POST http://127.0.0.1:8080/roundtrip \
   -H 'Content-Type: application/json' \
   -d '{"smiles":["CCO","c1ccccc1"]}'
 ```

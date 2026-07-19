@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .decode_runtime import DecodeRuntime
+
 
 class ServeManager:
     def __init__(
@@ -34,6 +36,7 @@ class ServeManager:
         self.started_at: float | None = None
         self.last_error: str | None = None
         self._log_handle = None
+        self.decode = DecodeRuntime()
 
     @property
     def base_url(self) -> str:
@@ -104,6 +107,12 @@ class ServeManager:
                     f"MAX Serve exited ({self.process.returncode}): {self.last_error}"
                 )
             if await self.healthy():
+                try:
+                    self.decode.load(asset_dir, device=self.device)
+                except Exception as exc:
+                    self.last_error = f"decode load failed: {exc}"
+                    await self.stop()
+                    raise RuntimeError(self.last_error) from exc
                 return
             await asyncio.sleep(1)
 
@@ -112,6 +121,7 @@ class ServeManager:
         raise TimeoutError(f"{self.last_error}\n{self._log_tail()}")
 
     async def stop(self) -> None:
+        self.decode.unload()
         proc = self.process
         if proc and proc.returncode is None:
             try:
@@ -143,6 +153,7 @@ class ServeManager:
         return {
             "running": running,
             "ready": ready,
+            "decodeReady": self.decode.ready,
             "pid": self.process.pid if running and self.process else None,
             "maxPort": self.max_port,
             "device": self.device,

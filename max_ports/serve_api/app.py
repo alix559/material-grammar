@@ -1,10 +1,12 @@
-"""HTTP API for loading SMI-TED weights into MAX and calling embeddings.
+"""HTTP API for loading SMI-TED weights into MAX and calling embeddings/decode.
 
 FastHTML routes only — no HTML UI. JSON in / JSON out.
 
   pixi run api
   POST /load        {\"weight_path\": \"...\"}  or  {\"checkpoint\": \"...\", \"task\": \"esol\"}
   POST /embeddings  {\"smiles\": \"CCO\"}  or  {\"smiles\": [\"CCO\", ...]}
+  POST /decode      {\"embeddings\": [[...768...], ...]}
+  POST /roundtrip   {\"smiles\": [\"CCO\", ...]}
   GET  /status
   POST /stop
 """
@@ -187,4 +189,77 @@ async def embeddings(request: Request):
         "model": manager.model_id(),
         "embeddings": vectors,
         "predictions": [float(v[0]) for v in vectors] if mode == "property" else None,
+    }
+
+
+@rt("/decode", methods=["POST"])
+async def decode(request: Request):
+    st = await manager.status()
+    if not st["ready"] or not manager.decode.ready:
+        return _json_error(
+            503, "decode not ready; POST /load with weight_path or checkpoint first"
+        )
+    try:
+        body = await _read_json(request)
+        embeddings = body.get("embeddings")
+        if embeddings is None:
+            raise ValueError("embeddings is required")
+        if isinstance(embeddings[0], (int, float)):
+            embeddings = [embeddings]
+        result = manager.decode.decode_embeddings(embeddings)
+        return {
+            "model": manager.model_id(),
+            "smiles": result["smiles"],
+            "token_ids": result["token_ids"],
+        }
+    except (ValueError, TypeError, IndexError) as e:
+        return _json_error(400, str(e))
+    except RuntimeError as e:
+        return _json_error(500, str(e))
+
+
+@rt("/roundtrip", methods=["POST"])
+async def roundtrip(request: Request):
+    "Encode SMILES via MAX serve, then decode embeddings back to SMILES."
+    st = await manager.status()
+    if not st["ready"] or not manager.decode.ready:
+        return _json_error(
+            503, "MAX not ready; POST /load with weight_path or checkpoint first"
+        )
+    try:
+        body = await _read_json(request)
+        smiles = body.get("smiles")
+        if smiles is None:
+            raise ValueError("smiles is required")
+        inputs = [smiles] if isinstance(smiles, str) else list(smiles)
+        if not inputs:
+            raise ValueError("smiles is empty")
+    except ValueError as e:
+        return _json_error(400, str(e))
+
+    payload_input: str | list[str] = inputs[0] if len(inputs) == 1 else inputs
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            r = await client.post(
+                f"{manager.base_url}/v1/embeddings",
+                json={"model": manager.model_id(), "input": payload_input},
+            )
+            r.raise_for_status()
+            data = r.json()
+    except httpx.HTTPError as e:
+        return _json_error(502, f"MAX embeddings failed: {e}")
+
+    rows = sorted(data["data"], key=lambda row: row["index"])
+    vectors = [row["embedding"] for row in rows]
+    try:
+        decoded = manager.decode.decode_embeddings(vectors)
+    except (ValueError, RuntimeError) as e:
+        return _json_error(500, str(e))
+
+    return {
+        "model": manager.model_id(),
+        "input_smiles": inputs,
+        "embeddings": vectors,
+        "decoded_smiles": decoded["smiles"],
+        "token_ids": decoded["token_ids"],
     }

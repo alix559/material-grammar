@@ -5,7 +5,7 @@
 # %% auto #0
 __all__ = ['smi_ted_arch', 'ARCHITECTURES']
 
-# %% ../nbs/06_arch.ipynb #d0231429
+# %% ../nbs/06_arch.ipynb #c83476c7
 from max.graph.weights import WeightsFormat
 from max.pipelines.context import TextContext
 from max.pipelines.lib import SupportedArchitecture
@@ -18,7 +18,7 @@ from .model_config import SmiTedModelConfig
 from .tokenizer import SmiTedTokenizer
 
 
-# %% ../nbs/06_arch.ipynb #63af9768
+# %% ../nbs/06_arch.ipynb #f5879d9d
 smi_ted_arch = SupportedArchitecture(
     name="SmiTedModel",
     task=PipelineTask.EMBEDDINGS_GENERATION,
@@ -43,6 +43,6 @@ smi_ted_arch = SupportedArchitecture(
 )
 
 
-# %% ../nbs/06_arch.ipynb #3b3302ed
+# %% ../nbs/06_arch.ipynb #47a14a0a
 ARCHITECTURES = [smi_ted_arch]
 

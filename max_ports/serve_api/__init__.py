@@ -1,4 +1,4 @@
-"""HTTP controller: load pretrained/finetune weights into MAX and call embeddings."""
+"""HTTP controller: load pretrained/finetune weights into MAX; embeddings + decode."""
 
 from __future__ import annotations
 

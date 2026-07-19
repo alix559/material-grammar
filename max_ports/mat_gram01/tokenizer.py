@@ -48,6 +48,21 @@ class MolTranBertTokenizer(BertTokenizerLegacy):
     def _tokenize(self, text: str) -> list[str]:
         return _SMILES_PATTERN.findall(text)
 
+    def convert_tokens_to_string(self, tokens: list[str]) -> str:
+        "Join SMILES tokens with no spaces (IBM ``MolTranBertTokenizer``)."
+        stopwords = {"<bos>", "<eos>"}
+        return "".join(tok for tok in tokens if tok not in stopwords)
+
+    def ids_to_smiles(self, ids) -> str:
+        "Convert a 1-d sequence of token ids to a SMILES string (IBM decode style)."
+        if hasattr(ids, "tolist"):
+            seq = [int(x) for x in ids.tolist()]
+        else:
+            seq = [int(x) for x in ids]
+        tokens = self.convert_ids_to_tokens(seq)
+        text = self.convert_tokens_to_string(tokens)
+        return text.replace("<pad>", "")
+
 
 # %% ../nbs/01_tokenizer.ipynb #63b9f8ef
 class SmiTedTokenizer(TextTokenizer):

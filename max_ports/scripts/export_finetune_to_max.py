@@ -102,6 +102,19 @@ def export_finetune(
     if not any(k.startswith("net.") for k in state):
         raise SystemExit(f"{checkpoint} MODEL_STATE has no net.* weights")
 
+    # Finetune .pt often omits AE-decoder / lang heads; merge from pretrained
+    # so the encode graph (which constructs those modules) can load strictly.
+    base_weights = base_assets / "model_weights.safetensors"
+    if base_weights.is_file():
+        from safetensors.torch import load_file
+
+        base_state = load_file(str(base_weights))
+        for key, tensor in base_state.items():
+            if key.startswith(
+                ("decoder.autoencoder.decoder.", "decoder.lang_model.")
+            ) and key not in state:
+                state[key] = tensor.detach().cpu().contiguous()
+
     save_file(state, str(out / "model_weights.safetensors"))
 
     config = base_config(base_assets)
