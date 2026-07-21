@@ -9,6 +9,9 @@ FastHTML routes only — no HTML UI. JSON in / JSON out.
   POST /roundtrip   {\"smiles\": [\"CCO\", ...]}
   GET  /status
   POST /stop
+
+Railway / production: set MATGRAM_AUTO_LOAD=1 and MATGRAM_HF_REPO to download
+exported ESOL assets from Hugging Face and start MAX on boot (no POST /load).
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from fasthtml.common import JSONResponse, fast_app
 from starlette.requests import Request
 from starlette.responses import Response
 
+from .bootstrap import download_esol_assets
 from .manager import ServeManager
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +42,7 @@ ARCH = REPO_ROOT / "mat_gram01"
 MAX_PORT = int(os.environ.get("MATGRAM_MAX_PORT", "8000"))
 DEVICE = os.environ.get("MATGRAM_DEVICE", "cpu")
 STARTUP_TIMEOUT = float(os.environ.get("MATGRAM_STARTUP_TIMEOUT", "180"))
+AUTO_LOAD = os.environ.get("MATGRAM_AUTO_LOAD", "").lower() in ("1", "true", "yes")
 
 app, rt = fast_app(pico=False, live=False)
 manager = ServeManager(
@@ -47,6 +52,26 @@ manager = ServeManager(
     device=DEVICE,
     startup_timeout=STARTUP_TIMEOUT,
 )
+
+
+@app.on_event("startup")
+async def _startup_auto_load() -> None:
+    """Download HF assets + start MAX in the background so /health stays up."""
+    if not AUTO_LOAD:
+        return
+
+    async def _run() -> None:
+        import asyncio
+
+        try:
+            asset_dir = await asyncio.to_thread(download_esol_assets)
+            await manager.start(asset_dir, device=DEVICE)
+        except Exception as e:  # noqa: BLE001 — surface on /status
+            manager.last_error = f"auto-load failed: {e}"
+
+    import asyncio
+
+    asyncio.create_task(_run())
 
 
 @app.on_event("shutdown")

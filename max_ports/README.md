@@ -60,6 +60,8 @@ curl -X POST http://127.0.0.1:8080/roundtrip \
 
 Notebook client: `nbs/09_serve.ipynb`.
 
+Railway (HF-hosted ESOL weights, no Git LFS): see [`docs/railway.md`](docs/railway.md).
+
 ## Notebooks (`nbs/`)
 
 | Notebook | Module | Topic |

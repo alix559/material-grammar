@@ -1,0 +1,26 @@
+.pixi/
+.venv/
+venv/
+.git/
+.gitignore
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Large weights — downloaded from Hugging Face at boot
+finetune_ckpts/
+model_assets/**/*.safetensors
+model_assets/**/*.pt
+model_assets/**/bert_vocab_curated.txt
+
+# Local / notebook noise
+nbs/
+docs/
+*.ipynb
+.max_serve_*.log
+.DS_Store
+.idea/
+.vscode/
+README.md
