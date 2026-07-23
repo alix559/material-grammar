@@ -29,4 +29,9 @@ export-nbs = "nbdev_export"
 compare-hf = "python ./scripts/compare_hf_embeddings.py"
 compare-decode = "python ./scripts/compare_hf_decode.py"
 upload-esol = "python ./scripts/upload_esol_assets.py"
+export-esol = "python ./scripts/export_finetune_to_max.py --checkpoint finetune_ckpts/esol/smi-ted-Light-Finetune_seed0_esol_epoch=3_valloss=0.7972.pt --task esol"
+# Raw MAX Serve on the exported ESOL property weights
+serve-esol = "max serve --model-path ./model_assets/smi-ted-esol --custom-architectures ./mat_gram01 --quantization-encoding float32 --devices=cpu --port 8000"
+# HTTP API + auto-load local (or HF) ESOL assets on boot
+api-esol = { cmd = "python -m serve_api", env = { MATGRAM_AUTO_LOAD = "1" } }
 api = "python -m serve_api"

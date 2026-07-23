@@ -33,16 +33,24 @@ def download_esol_assets(
     revision: str | None = None,
     dest: Path | None = None,
 ) -> Path:
-    """Ensure exported ESOL assets exist locally; download from HF if needed."""
-    repo_id = repo_id or os.environ.get("MATGRAM_HF_REPO")
-    if not repo_id:
-        raise ValueError("MATGRAM_HF_REPO is required to download ESOL assets")
-    revision = revision or os.environ.get("MATGRAM_HF_REVISION", "main")
+    """Ensure exported ESOL assets exist locally; download from HF if needed.
+
+    Prefers an already-exported local directory (``model_assets/smi-ted-esol``).
+    Only requires ``MATGRAM_HF_REPO`` when those files are missing.
+    """
     dest = (dest or esol_asset_dir()).resolve()
     dest.mkdir(parents=True, exist_ok=True)
 
     if assets_ready(dest):
         return dest
+
+    repo_id = repo_id or os.environ.get("MATGRAM_HF_REPO")
+    if not repo_id:
+        raise ValueError(
+            "ESOL assets missing locally and MATGRAM_HF_REPO is unset; "
+            "run export (pixi run export-esol) or set MATGRAM_HF_REPO"
+        )
+    revision = revision or os.environ.get("MATGRAM_HF_REVISION", "main")
 
     token = os.environ.get("HF_TOKEN") or None
     cache = snapshot_download(

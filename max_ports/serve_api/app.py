@@ -3,6 +3,7 @@
 FastHTML routes only — no HTML UI. JSON in / JSON out.
 
   pixi run api
+  pixi run api-esol   # same API, auto-loads model_assets/smi-ted-esol on boot
   POST /load        {\"weight_path\": \"...\"}  or  {\"checkpoint\": \"...\", \"task\": \"esol\"}
   POST /embeddings  {\"smiles\": \"CCO\"}  or  {\"smiles\": [\"CCO\", ...]}
   POST /decode      {\"embeddings\": [[...768...], ...]}
@@ -10,6 +11,7 @@ FastHTML routes only — no HTML UI. JSON in / JSON out.
   GET  /status
   POST /stop
 
+Local ESOL: ``pixi run api-esol`` (uses exported assets under model_assets/smi-ted-esol).
 Railway / production: set MATGRAM_AUTO_LOAD=1 and MATGRAM_HF_REPO to download
 exported ESOL assets from Hugging Face and start MAX on boot (no POST /load).
 """
@@ -56,7 +58,7 @@ manager = ServeManager(
 
 @app.on_event("startup")
 async def _startup_auto_load() -> None:
-    """Download HF assets + start MAX in the background so /health stays up."""
+    """Load local or HF ESOL assets + start MAX in the background."""
     if not AUTO_LOAD:
         return
 
@@ -64,6 +66,7 @@ async def _startup_auto_load() -> None:
         import asyncio
 
         try:
+            # Local export wins; HF download only if assets are missing.
             asset_dir = await asyncio.to_thread(download_esol_assets)
             await manager.start(asset_dir, device=DEVICE)
         except Exception as e:  # noqa: BLE001 — surface on /status

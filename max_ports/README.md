@@ -13,6 +13,16 @@ pixi run setup-model   # downloads pretrained weights + vocab into model_assets/
 
 ## HTTP API
 
+ESOL finetune in one step (exports live under `model_assets/smi-ted-esol/`):
+
+```bash
+pixi run export-esol   # once, from the IBM .pt checkpoint
+pixi run api-esol      # HTTP API on :8080; auto-loads ESOL into MAX on :8000
+# or: pixi run serve-esol   # raw `max serve` only
+```
+
+Generic API (load weights yourself via `POST /load`):
+
 ```bash
 pixi run api
 # → http://127.0.0.1:8080

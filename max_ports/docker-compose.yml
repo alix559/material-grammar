@@ -1,0 +1,40 @@
+# Local server deploy for mat-gram ESOL HTTP API (+ MAX Serve).
+#
+#   docker compose up -d --build
+#   curl -s http://127.0.0.1:8080/health
+#   curl -s http://127.0.0.1:8080/status | jq
+#
+# Weights stay on the host (bind-mounted). Image builds code + pixi env only.
+
+services:
+  matgram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: matgram-esol:local
+    container_name: matgram
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # FastHTML API: /health /status /embeddings /decode /roundtrip
+      - "8000:8000"   # MAX Serve (internal; optional to expose)
+    environment:
+      PORT: "8080"
+      MATGRAM_DEVICE: cpu
+      MATGRAM_AUTO_LOAD: "1"
+      MATGRAM_MAX_PORT: "8000"
+      MATGRAM_STARTUP_TIMEOUT: "600"
+      MATGRAM_ASSETS_DIR: /app/model_assets
+    volumes:
+      # Full asset tree (config + 1.1GB weights).
+      - ./model_assets:/app/model_assets:ro
+      # Overlay the host symlink with the real vocab file.
+      - ../vendor/ibm_materials/models/smi_ted/smi_ted_light/bert_vocab_curated.txt:/app/model_assets/smi-ted-esol/bert_vocab_curated.txt:ro
+      # Reuse host MAX graph compile cache (avoids multi-GB cold compile spike).
+      - ./.pixi/envs/default/share/max/cache:/app/.pixi/envs/default/share/max/cache
+    shm_size: "2gb"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
